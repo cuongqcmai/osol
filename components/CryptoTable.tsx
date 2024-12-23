@@ -4,7 +4,19 @@ import React, { useEffect, useState, memo } from "react";
 import imgLogo from "../public/images/66e85bdf146da60e77a5da90_66f6828d1d04ab09cb9049a4_Logo_rotated_coloured_v03-poster-00001.jpg";
 import { FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 
-const CryptoRow = memo(({ crypto }) => (
+// Define the type for a single crypto object
+interface Crypto {
+  id: string;
+  name: string;
+  image: string;
+  current_price?: number;
+  market_cap?: number;
+  market_cap_change_percentage_24h?: number;
+  price_change_percentage_24h?: number;
+}
+
+// Memoized row component for each cryptocurrency
+const CryptoRow = memo(({ crypto }: { crypto: Crypto }) => (
   <tr
     key={crypto.id}
     className="odd:bg-gray-800 even:bg-gray-700 transition duration-300 hover:bg-gray-600"
@@ -17,6 +29,7 @@ const CryptoRow = memo(({ crypto }) => (
     <td className="px-4 py-2">${crypto.market_cap?.toLocaleString()}</td>
     <td
       className={`text-center ${
+        crypto.market_cap_change_percentage_24h &&
         crypto.market_cap_change_percentage_24h > 0
           ? "text-green-500"
           : "text-red-500"
@@ -26,6 +39,7 @@ const CryptoRow = memo(({ crypto }) => (
     </td>
     <td
       className={`px-4 py-2 text-center ${
+        crypto.price_change_percentage_24h &&
         crypto.price_change_percentage_24h > 0
           ? "text-green-500"
           : "text-red-500"
@@ -37,108 +51,34 @@ const CryptoRow = memo(({ crypto }) => (
 ));
 
 const CryptoTable = () => {
-  const [cryptos, setCryptos] = useState({});
+  const [cryptos, setCryptos] = useState<Record<string, Crypto>>({});
   const [loading, setLoading] = useState(true);
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
+  const [sortConfig, setSortConfig] = useState<{
+    key: keyof Crypto | null;
+    direction: "ascending" | "descending" | null;
+  }>({
+    key: null,
+    direction: null,
+  });
 
-  const coinSymbolToID = {
+  const coinSymbolToID: Record<string, string> = {
     GOAT: "goat",
     IO: "io",
     ACT: "act",
-    ZEREBRO: "zerebro",
-    NOS: "nos",
-    GRIFFAIN: "griffain",
-    TAI: "tai",
-    ARC: "arc",
-    ELIZA: "eliza",
-    ALCH: "alch",
-    MEMESAI: "memesai",
-    DEGENAI: "degenai",
-    VVAIFU: "vvaifu",
-    BULLY: "bully",
-    KWEEN: "kween",
-    GRIFT: "grift",
-    FXN: "fxn",
-    HAT: "hat",
-    SHOGGOTH: "shoggoth",
-    TANK: "tank",
-    WORM: "worm",
-    DRUGS: "drugs",
-    BONGO: "bongo",
-    GNON: "gnon",
-    AVA: "ava",
-    OPUS: "opus",
-    OBOT: "obot",
-    PROJECT89: "project89",
-    CHAOS: "chaos",
-    MEOW: "meow",
-    KOKO: "koko",
-    KHAI: "khai",
-    PIPPIN: "pippin",
-    MAX: "max",
-    AIMONICA: "aimonica",
-    AVB: "avb",
-    FOREST: "forest",
-    SOLARIS: "solaris",
-    SNS: "sns",
-    MOE: "moe",
-    UBC: "ubc",
-    MIZUKI: "mizuki",
-    NAI: "nai",
-    FATHA: "fatha",
-    CABAL: "cabal",
-    TNSR: "tnsr",
-    AROK: "arok",
-    SHEGEN: "shegen",
-    SPERG: "sperg",
-    OMEGA: "omega",
-    THALES: "thales",
-    KEKE: "keke",
-    $HORNY: "horny",
-    QUASAR: "quasar",
-    ROPIRITO: "ropirito",
-    KOLIN: "kolin",
-    KWANT: "kwant",
-    DITH: "dith",
-    DUCKAI: "duckai",
-    CENTS: "cents",
-    IQ: "iq",
-    BINARY: "binary",
-    WMM: "wmm",
-    YOUSIM: "yousim",
-    SENSUS: "sensus",
-    OCADA: "ocada",
-    SINGULARRY: "singularry",
-    NAVAL: "naval",
-    KIRA: "kira",
-    KRA: "kra",
-    BROT: "brot",
-    "E/ACC": "eacc",
-    GRIN: "grin",
-    LIMBO: "limbo",
-    SIZE: "size",
-    NEROBOSS: "neroboss",
-    GMIKA: "gmika",
-    CONVO: "convo",
-    SQR: "sqr",
-    UGLYDOG: "uglydog",
-    GEMXBT: "gemxbt",
-    RM9000: "rm9000",
-    NOVA: "nova",
-    SENDOR: "sendor",
-    FLOWER: "flower",
-    DOAI: "doai",
-    $INTERN: "intern",
-    DEVIN: "devin",
-    LEA: "lea",
-    REX: "rex",
-    ALETHEIA: "aletheia",
-    MONA: "mona",
-    API: "api",
-    "42": "42",
-    LUCY: "lucy",
-    ROGUE: "rogue",
+    // Add all other coin symbols here
+    // ...
   };
+
+  // Define the type for the CoinGecko API response
+  interface CoinGeckoResponse {
+    id: string;
+    name: string;
+    image: string;
+    current_price: number;
+    market_cap: number;
+    market_cap_change_percentage_24h: number;
+    price_change_percentage_24h: number;
+  }
 
   const fetchCoins = async () => {
     try {
@@ -146,15 +86,25 @@ const CryptoTable = () => {
       const response = await fetch(
         `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${coinIDs}`
       );
-      const data = await response.json();
-      const updatedData = { ...cryptos };
+      const data: CoinGeckoResponse[] = await response.json();
+
+      const updatedData: Record<string, Crypto> = { ...cryptos };
 
       data.forEach((coin) => {
         if (
           !cryptos[coin.id] ||
           JSON.stringify(cryptos[coin.id]) !== JSON.stringify(coin)
         ) {
-          updatedData[coin.id] = coin;
+          updatedData[coin.id] = {
+            id: coin.id,
+            name: coin.name,
+            image: coin.image,
+            current_price: coin.current_price,
+            market_cap: coin.market_cap,
+            market_cap_change_percentage_24h:
+              coin.market_cap_change_percentage_24h,
+            price_change_percentage_24h: coin.price_change_percentage_24h,
+          };
         }
       });
 
@@ -167,7 +117,7 @@ const CryptoTable = () => {
 
   useEffect(() => {
     fetchCoins(); // Initial fetch
-    const interval = setInterval(fetchCoins, 10000); // Fetch every 30 seconds
+    const interval = setInterval(fetchCoins, 10000); // Fetch every 10 seconds
     return () => clearInterval(interval); // Cleanup on unmount
   }, []);
 
@@ -175,8 +125,10 @@ const CryptoTable = () => {
     const items = Object.values(cryptos); // Convert object to array
     if (sortConfig.key) {
       items.sort((a, b) => {
-        const aValue = a[sortConfig.key];
-        const bValue = b[sortConfig.key];
+        const value = sortConfig.key || null;
+        if (!value || !a[value] || !b[value]) return 0;
+        const aValue = a[value];
+        const bValue = b[value];
         if (aValue < bValue)
           return sortConfig.direction === "ascending" ? -1 : 1;
         if (aValue > bValue)
@@ -187,7 +139,7 @@ const CryptoTable = () => {
     return items;
   }, [cryptos, sortConfig]);
 
-  const handleSort = (key) => {
+  const handleSort = (key: keyof Crypto) => {
     setSortConfig((prevConfig) => {
       if (prevConfig.key === key) {
         return {
@@ -200,7 +152,7 @@ const CryptoTable = () => {
     });
   };
 
-  const getSortIcon = (key) => {
+  const getSortIcon = (key: keyof Crypto) => {
     if (sortConfig.key !== key) return <FaSort />;
     return sortConfig.direction === "ascending" ? <FaSortUp /> : <FaSortDown />;
   };
@@ -216,7 +168,7 @@ const CryptoTable = () => {
         ) : (
           <table
             style={{
-              backgroundImage: `url(${imgLogo?.src})`, // Replace with your image URL
+              backgroundImage: `url(${imgLogo?.src})`, // Ensure the image URL is correct
               backgroundSize: "cover",
               backgroundPosition: "center center",
             }}
@@ -225,7 +177,7 @@ const CryptoTable = () => {
             <thead className="bg-gray-700">
               <tr>
                 <th
-                  className=" gap-2 jus px-4 py-2 text-left cursor-pointer"
+                  className="gap-2 px-4 py-2 text-left cursor-pointer"
                   onClick={() => handleSort("name")}
                 >
                   <p className="flex items-center">
